@@ -370,7 +370,7 @@ def run(args, dag=None):
 
     set_context(log, ti)
 
-    hostname = socket.getfqdn()
+    hostname = socket.gethostbyname(socket.gethostname())
     log.info("Running on host %s", hostname)
 
     with redirect_stdout(log, logging.INFO), redirect_stderr(log, logging.WARN):

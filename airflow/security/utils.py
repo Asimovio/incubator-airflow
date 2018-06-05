@@ -53,7 +53,7 @@ def replace_hostname_pattern(components, host=None):
 
 
 def get_localhost_name():
-    return socket.getfqdn()
+    return socket.gethostbyname(socket.gethostname())
 
 
 def get_fqdn(hostname_or_ip=None):

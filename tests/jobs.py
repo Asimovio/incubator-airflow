@@ -762,7 +762,7 @@ class LocalTaskJobTest(unittest.TestCase):
 
         mock_pid.return_value = 1
         ti.state = State.RUNNING
-        ti.hostname = socket.getfqdn()
+        ti.hostname = socket.gethostbyname(socket.gethostname())
         ti.pid = 1
         session.merge(ti)
         session.commit()
@@ -832,7 +832,7 @@ class LocalTaskJobTest(unittest.TestCase):
                                session=session)
         ti = dr.get_task_instance(task_id=task.task_id, session=session)
         ti.state = State.RUNNING
-        ti.hostname = socket.getfqdn()
+        ti.hostname = socket.gethostbyname(socket.gethostname())
         ti.pid = 1
         session.commit()
 
