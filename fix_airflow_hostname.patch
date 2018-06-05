@@ -1,0 +1,170 @@
+diff --git a/airflow/bin/cli.py b/airflow/bin/cli.py
+index 1001e05d..ce4657dc 100755
+--- a/airflow/bin/cli.py
++++ b/airflow/bin/cli.py
+@@ -370,7 +370,7 @@ def run(args, dag=None):
+ 
+     set_context(log, ti)
+ 
+-    hostname = socket.getfqdn()
++    hostname = socket.gethostbyname(socket.gethostname())
+     log.info("Running on host %s", hostname)
+ 
+     with redirect_stdout(log, logging.INFO), redirect_stderr(log, logging.WARN):
+diff --git a/airflow/jobs.py b/airflow/jobs.py
+index e7fff311..c3c39e4c 100644
+--- a/airflow/jobs.py
++++ b/airflow/jobs.py
+@@ -96,7 +96,7 @@ class BaseJob(Base, LoggingMixin):
+             executor=executors.GetDefaultExecutor(),
+             heartrate=conf.getfloat('scheduler', 'JOB_HEARTBEAT_SEC'),
+             *args, **kwargs):
+-        self.hostname = socket.getfqdn()
++        self.hostname = socket.gethostbyname(socket.gethostname())
+         self.executor = executor
+         self.executor_class = executor.__class__.__name__
+         self.start_date = datetime.utcnow()
+@@ -2563,7 +2563,7 @@ class LocalTaskJob(BaseJob):
+         self.task_instance.refresh_from_db()
+         ti = self.task_instance
+ 
+-        fqdn = socket.getfqdn()
++        fqdn = socket.gethostbyname(socket.gethostname())
+         same_hostname = fqdn == ti.hostname
+         same_process = ti.pid == os.getpid()
+ 
+diff --git a/airflow/models.py b/airflow/models.py
+index 3e296eb5..617b96c0 100755
+--- a/airflow/models.py
++++ b/airflow/models.py
+@@ -1337,7 +1337,7 @@ class TaskInstance(Base, LoggingMixin):
+         self.test_mode = test_mode
+         self.refresh_from_db(session=session, lock_for_update=True)
+         self.job_id = job_id
+-        self.hostname = socket.getfqdn()
++        self.hostname = socket.gethostbyname(socket.gethostname())
+         self.operator = task.__class__.__name__
+ 
+         if not ignore_all_deps and not ignore_ti_state and self.state == State.SUCCESS:
+@@ -1454,7 +1454,7 @@ class TaskInstance(Base, LoggingMixin):
+         self.test_mode = test_mode
+         self.refresh_from_db(session=session)
+         self.job_id = job_id
+-        self.hostname = socket.getfqdn()
++        self.hostname = socket.gethostbyname(socket.gethostname())
+         self.operator = task.__class__.__name__
+ 
+         context = {}
+diff --git a/airflow/security/kerberos.py b/airflow/security/kerberos.py
+index 7a169b29..0314f317 100644
+--- a/airflow/security/kerberos.py
++++ b/airflow/security/kerberos.py
+@@ -31,7 +31,7 @@ def renew_from_kt():
+     # The config is specified in seconds. But we ask for that same amount in
+     # minutes to give ourselves a large renewal buffer.
+     renewal_lifetime = "%sm" % configuration.getint('kerberos', 'reinit_frequency')
+-    principal = configuration.get('kerberos', 'principal').replace("_HOST", socket.getfqdn())
++    principal = configuration.get('kerberos', 'principal').replace("_HOST", socket.gethostbyname(socket.gethostname()))
+ 
+     cmdv = [configuration.get('kerberos', 'kinit_path'),
+             "-r", renewal_lifetime,
+@@ -76,7 +76,7 @@ def perform_krb181_workaround():
+     ret = subprocess.call(cmdv)
+ 
+     if ret != 0:
+-        principal = "%s/%s" % (configuration.get('kerberos', 'principal'), socket.getfqdn())
++        principal = "%s/%s" % (configuration.get('kerberos', 'principal'), socket.gethostbyname(socket.gethostname()))
+         fmt_dict = dict(princ=principal,
+                         ccache=configuration.get('kerberos', 'principal'))
+         log.error("Couldn't renew kerberos ticket in order to work around "
+diff --git a/airflow/security/utils.py b/airflow/security/utils.py
+index b2de3e3e..1aa91cb5 100644
+--- a/airflow/security/utils.py
++++ b/airflow/security/utils.py
+@@ -53,7 +53,7 @@ def replace_hostname_pattern(components, host=None):
+ 
+ 
+ def get_localhost_name():
+-    return socket.getfqdn()
++    return socket.gethostbyname(socket.gethostname())
+ 
+ 
+ def get_fqdn(hostname_or_ip=None):
+diff --git a/airflow/www/app.py b/airflow/www/app.py
+index bbb9410e..bcb81623 100644
+--- a/airflow/www/app.py
++++ b/airflow/www/app.py
+@@ -143,7 +143,7 @@ def create_app(config=None, testing=False):
+         @app.context_processor
+         def jinja_globals():
+             return {
+-                'hostname': socket.getfqdn(),
++                'hostname': socket.gethostbyname(socket.gethostname()),
+             }
+ 
+         @app.teardown_appcontext
+diff --git a/airflow/www/views.py b/airflow/www/views.py
+index 63af88fd..2d1e004d 100644
+--- a/airflow/www/views.py
++++ b/airflow/www/views.py
+@@ -614,14 +614,14 @@ class Airflow(BaseView):
+     @current_app.errorhandler(404)
+     def circles(self):
+         return render_template(
+-            'airflow/circles.html', hostname=socket.getfqdn()), 404
++            'airflow/circles.html', hostname=socket.gethostbyname(socket.gethostname())), 404
+ 
+     @current_app.errorhandler(500)
+     def show_traceback(self):
+         from airflow.utils import asciiart as ascii_
+         return render_template(
+             'airflow/traceback.html',
+-            hostname=socket.getfqdn(),
++            hostname=socket.gethostbyname(socket.gethostname()),
+             nukular=ascii_.nukular,
+             info=traceback.format_exc()), 500
+ 
+diff --git a/tests/jobs.py b/tests/jobs.py
+index 9d2f3639..6a651b8e 100644
+--- a/tests/jobs.py
++++ b/tests/jobs.py
+@@ -762,7 +762,7 @@ class LocalTaskJobTest(unittest.TestCase):
+ 
+         mock_pid.return_value = 1
+         ti.state = State.RUNNING
+-        ti.hostname = socket.getfqdn()
++        ti.hostname = socket.gethostbyname(socket.gethostname())
+         ti.pid = 1
+         session.merge(ti)
+         session.commit()
+@@ -832,7 +832,7 @@ class LocalTaskJobTest(unittest.TestCase):
+                                session=session)
+         ti = dr.get_task_instance(task_id=task.task_id, session=session)
+         ti.state = State.RUNNING
+-        ti.hostname = socket.getfqdn()
++        ti.hostname = socket.gethostbyname(socket.gethostname())
+         ti.pid = 1
+         session.commit()
+ 
+diff --git a/tests/www/api/experimental/test_kerberos_endpoints.py b/tests/www/api/experimental/test_kerberos_endpoints.py
+index 2fce0194..296cf765 100644
+--- a/tests/www/api/experimental/test_kerberos_endpoints.py
++++ b/tests/www/api/experimental/test_kerberos_endpoints.py
+@@ -57,7 +57,7 @@ class ApiKerberosTests(unittest.TestCase):
+             )
+             self.assertEqual(401, response.status_code)
+ 
+-            response.url = 'http://{}'.format(socket.getfqdn())
++            response.url = 'http://{}'.format(socket.gethostbyname(socket.gethostname()))
+ 
+             class Request():
+                 headers = {}
+@@ -72,7 +72,7 @@ class ApiKerberosTests(unittest.TestCase):
+             client_auth.mutual_authentication = 3
+ 
+             # case can influence the results
+-            client_auth.hostname_override = socket.getfqdn()
++            client_auth.hostname_override = socket.gethostbyname(socket.gethostname())
+ 
+             client_auth.handle_response(response)
+             self.assertIn('Authorization', response.request.headers)
